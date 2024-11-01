@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Bot tokeni
 TOKEN = "7507539683:AAGPtUDd61_j1jF-oKw7x9vDidB7Bdk42oU"
-ADMIN_ID = "nodirbek_ub"
+ADMIN_ID = 107301615
 db = Database()
 # So'zlar bazasi
 VOCAB_DATABASE = {
