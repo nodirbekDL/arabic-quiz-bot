@@ -2,6 +2,7 @@ import logging
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 import random
+from database import Database
 
 # Logging sozlamalari
 logging.basicConfig(
@@ -12,7 +13,8 @@ logger = logging.getLogger(__name__)
 
 # Bot tokeni
 TOKEN = "7507539683:AAGPtUDd61_j1jF-oKw7x9vDidB7Bdk42oU"
-
+ADMIN_ID = "nodirbek_ub"
+db = Database()
 # So'zlar bazasi
 VOCAB_DATABASE = {
     1: [  # 1-dars | هَذَا
@@ -302,6 +304,14 @@ current_questions = {}
 
 async def start(update, context):
     """Start komandasi uchun funksiya"""
+    user = update.message.from_user
+    # Yangi foydalanuvchini databazaga qo'shamiz
+    db.add_user(
+        user.id,
+        user.username,
+        user.first_name
+    )
+    
     await update.message.reply_text(
         "Assalomu alaykum! Arab tili darsligi bo'yicha test botiga xush kelibsiz!\n"
         "Test ishlashni boshlash uchun /test buyrug'ini yuboring."
@@ -427,6 +437,11 @@ async def send_question(message, user_id):
     else:
         total = len(test_data['words'])
         correct = test_data['correct']
+        lesson_number = test_data.get('lesson').split('-')[0]  # "5-dars" dan "5" ni olamiz
+        
+        # Test natijasini saqlash
+        db.add_test_result(user_id, int(lesson_number), correct, total)
+        
         await message.reply_text(
             f"🏁 Test tugadi!\n\n"
             f"📊 Natijalar:\n"
@@ -464,6 +479,26 @@ async def handle_answer_button(update, context):
     test_data['current_index'] += 1
     await send_question(query.message, user_id)
 
+async def get_stats(update, context):
+    """Statistika ko'rish komandasi"""
+    user_id = update.effective_user.id
+    
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("Bu buyruq faqat admin uchun!")
+        return
+    
+    stats = db.get_daily_stats()
+    if stats:
+        users_count, tests_count, average_score = stats
+        await update.message.reply_text(
+            f"📊 Bugungi statistika:\n\n"
+            f"👥 Foydalanuvchilar soni: {users_count}\n"
+            f"📝 Ishlangan testlar: {tests_count}\n"
+            f"📈 O'rtacha ball: {average_score:.1f}%"
+        )
+    else:
+        await update.message.reply_text("Bugun hali statistika yo'q")
+
 def main():
     """Botni ishga tushirish"""
     try:
@@ -473,6 +508,7 @@ def main():
         # Handlerlarni qo'shamiz
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CommandHandler("test", test_command))
+        app.add_handler(CommandHandler("stats", get_stats))  # Yangi qator
         app.add_handler(CallbackQueryHandler(handle_type_selection, pattern="^type_"))
         app.add_handler(CallbackQueryHandler(handle_test_selection, pattern="^test_"))
         app.add_handler(CallbackQueryHandler(handle_answer_button, pattern="^ans_"))
